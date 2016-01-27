@@ -1,0 +1,80 @@
+UsersRaw <- read.csv("beroomers.csv", header=T, na.strings=c("","NA"))
+summary(Users)
+pMiss <- function(x){sum(is.na(x))/length(x)*100}
+apply(UsersRaw,2, pMiss)
+library(dplyr)
+install.packages("lubridate")
+library(lubridate)
+library(zoo)
+library(scales)
+Users <- filter(UsersRaw, user_type =="roomer")
+
+Users <- Users[!grepl("Trabaja en Beroomers", Users$Segment),]
+
+Users1 <- select(Users,Email,Signed.up..CET.,Last.seen..CET.,  ciudad_destino,Web.sessions, Country, tiene_reserva)
+apply(Users1,2, pMiss)
+
+CleanUsers <- na.omit(Users1)
+
+colnames(Users1)[2] <- "Sign_Up"
+colnames(Users1)[3] <-  "Last_Seen"
+colnames(Users1)[4] <-  "Destination"
+colnames(Users1)[5] <-  "Web_Sessions" 
+colnames(Users1)[7] <-  "Booking"
+
+length(unique(Users1$Country))
+
+length(unique(Users1$Destination))
+sum(is.na(Users1$Destination))
+sum(is.na(Users1$Country))
+apply(Users1,2, pMiss)
+
+CleanUsers <- na.omit(Users1)
+unique(CleanUsers$Booking)
+
+str(CleanUsers)
+CleanUsers$Booking <- as.character(CleanUsers$Booking)
+CleanUsers$Booking[CleanUsers$Booking=="SI"] <- "confirmed"
+CleanUsers$Booking[CleanUsers$Booking=="NO"] <- "not_confirmed"
+CleanUsers$Booking[CleanUsers$Booking=="no-bookings"] <- "not_confirmed"
+
+typeof(CleanUsers$Sign_Up)
+CleanUsers$Sign_Up <- as.POSIXct(CleanUsers$Sign_Up, tz = "GMT")
+CleanUsers$Last_Seen <- as.POSIXct(CleanUsers$Last_Seen, tz = "GMT")
+
+
+class(CleanUsers$Last_Seen)
+CleanUsers <- mutate(CleanUsers, td_sec= (Last_Seen-Sign_Up))
+CleanUsers$time_diff <- NULL
+
+
+?grep
+CleanUsers$td_days <- seconds_to_period(CleanUsers$td_sec)
+
+cor(as.numeric(CleanUsers$td_sec), CleanUsers$Web_Sessions)
+mean(CleanUsers$Web_Sessions)
+summary(CleanUsers$Web_Sessions)
+nrow(filter(CleanUsers,Booking=="confirmed"))
+nrow(filter(CleanUsers,Booking=="not_confirmed"))
+nrow(filter(CleanUsers,Booking=="pending"))
+nrow(filter(CleanUsers,Booking=="cancelled"))
+
+
+CleanUsers%>%select( Web_Sessions, Booking, td_days, td_sec)%>%group_by(Booking)%>% summarize( 
+                                                                                     count=n(), avg_webs= mean(Web_Sessions),
+                                                                                     avg_hrs=mean(td_sec)/3600)
+                                                                             
+
+CleanUsers <- CleanUsers[!grepl("beroomers", CleanUsers$Email),]
+CleanUsers <- CleanUsers[!grepl("beroomers", CleanUsers$Email),]
+
+cor(as.numeric(CleanUsers$td_sec), CleanUsers$Web_Sessions)
+
+t1 <- filter(CleanUsers, Booking=="cancelled")
+plot(t1$Last_Seen,t1$Web_Sessions)
+
+#-------------------------------------------
+
+tnotconfirm <- filter(CleanUsers, Booking=="not_confirmed")
+summary(tnotconfirm$Web_Sessions)
+summary(tconfirm$Web_Sessions)
