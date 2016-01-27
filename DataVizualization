@@ -1,0 +1,263 @@
+CleanUsers <- read.csv("clean.csv")
+
+tnotconfirm <- filter(cleaner, Booking=="not_confirmed")
+rm(tnotconfirm)
+summary(tnotconfirm$Web_Sessions)
+summary(tconfirm$Web_Sessions)
+CleanUsers$Date <- as.Date(CleanUsers$Sign_Up)
+
+
+
+rm(cleaner)
+cleaner <- filter(CleanUsers, Web_Sessions < 99, td_sec>0, as.Date(Sign_Up) >"2014-09-01")
+cleaner$td_days <- seconds_to_period(cleaner$td_sec)
+cleaner <- mutate(cleaner, td_Weeks= (td_sec/604800))
+
+cleaner$Destination[grepl("Valencia", cleaner$Destination, ignore.case=TRUE)] <- "Valencia"
+cleaner$Destination[grepl("Barcelona", cleaner$Destination, ignore.case=TRUE)] <- "Barcelona"
+cleaner$Destination[grepl("London", cleaner$Destination, ignore.case=TRUE)] <- "London"
+cleaner$Destination[grepl("Madrid", cleaner$Destination, ignore.case=TRUE)] <- "Madrid"
+cleaner$Destination[grepl("Seville", cleaner$Destination, ignore.case=TRUE)] <- "Sevilla"
+cleaner$Destination[grepl("Sevilla", cleaner$Destination, ignore.case=TRUE)] <- "Sevilla"
+cleaner$Destination[grepl("Rome", cleaner$Destination, ignore.case=TRUE)] <- "Rome"
+cleaner$Destination[grepl("Berlin", cleaner$Destination, ignore.case=TRUE)] <- "Berlin"
+cleaner$Destination[grepl("Milan", cleaner$Destination, ignore.case=TRUE)] <- "Milano"
+
+
+
+cleaner$Month <- month(cleaner$Date)
+cleaner$Month <- as.integer(cleaner$Month)
+cleaner$monyear <- as.yearmon(cleaner$Date, format="%m/%Y")
+class(cleaner$Month)
+
+library(ggplot2)
+library(lubridate)
+library(zoo)
+library(dplyr)
+
+ggplot( data =cleaner , aes( Date, Web_Sessions )) + geom_smooth(aes(col = cleaner$Booking))
+windows()
+
+
+#compared with all booking status
+
+infoclean0 <- cleaner%>%select( Web_Sessions, Booking, monyear)%>%group_by(Booking, monyear)%>% summarize( count=n(), avg_webs= mean(Web_Sessions), sum= sum(Web_Sessions))
+
+ggplot( data =infoclean1 , aes( as.factor(monyear), avg_webs ,fill = infoclean1$Booking)) + 
+  geom_bar(stat="identity",position = 'dodge')
+
+windows()
+
+
+#looking at the day difference comparing the 3 statuses
+infoclean1 <- cleaner%>%select( td_day1, Booking, monyear)%>%group_by(Booking, monyear)%>% 
+  summarize( count=n(), Days= sum(td_day1))
+
+ggplot( data =infoclean1 , aes( as.factor(monyear), Days ,fill = infoclean1$Booking)) + 
+  geom_bar(stat="identity",position = 'dodge')
+
+
+#looking at the day difference for everyone
+infocleanall <- cleaner%>%select(td_Weeks, monyear)%>%group_by(monyear)%>% summarize( count=n(), Week= mean(td_Weeks))
+
+
+
+ggplot( data =infocleanall , aes( infocleanall$monyear, Week ,fill = infocleanall$Week)) + 
+  geom_bar(stat="identity",position = 'dodge') + scale_x_yearmon(n=10)
+
+class(cleaner$monyear)
+
+
+
+# ggplot( data =tconfirm , aes( Date, Web_Sessions )) + geom_smooth()
+
+# infocleanconfirm <- cleaner%>%filter( Booking=="confirmed")%>%select(td_Weeks, monyear)%>%group_by(monyear)%>% summarize( count=n(), Week= mean(td_Weeks))
+# 
+# ggplot( data =infocleanconfirm , aes( infocleanconfirm$monyear, Week ,fill = infocleanconfirm$Week)) + 
+#   geom_bar(stat="identity",position = 'dodge') + scale_x_yearmon(n=12)
+# 
+# 
+# 
+# 
+# #confirmed booking
+# 
+# tconfirm <- filter(cleaner, Booking=="confirmed")
+# 
+# infocleanT <- tconfirm%>%select( Web_Sessions, Booking, monyear)%>%group_by(monyear,Booking)%>% summarize( 
+#   count=n(), avg_webs= mean(Web_Sessions)) 
+# 
+# ggplot( data =infocleanT , aes( as.factor(monyear), avg_webs ,fill = infocleanT$avg_webs)) + 
+#   geom_bar(stat="identity",position = 'dodge')
+# windows()
+
+
+
+
+
+
+?hist
+
+Nat_Des <- CleanUsers %>% group_by(Country, Destination, Booking) %>%
+  summarize(count=n(), avg_webs= mean(Web_Sessions),avg_hrs=mean(td_sec/3600))
+
+#target cities
+
+target <- c("Madrid", "Sevilla", "Barcelona")
+
+targetcities <-  cleaner%>% filter( Destination %in% target) %>% select(monyear,Destination, td_Weeks,Web_Sessions)%>%group_by(monyear, Destination)%>% 
+  summarize( count=n(), avg_weeks= mean(td_Weeks),avg_webs= mean(Web_Sessions))  
+
+
+ggplot( data =targetcities , aes( as.factor(monyear), avg_weeks ,fill = targetcities$Destination)) + 
+  geom_bar(stat="identity",position = 'dodge', width =0.5)+ 
+  ggtitle("Average Time spent looking at the Spanish Cities") +
+  xlab("Sign Up Month")+ ylab("Number of Weeks")+ theme(legend.position = "right") + scale_fill_discrete(name ="Cities")
+windows()
+
+#Nationality ans Destination aggregate 
+
+
+#spain and USA
+country <- c("United States", "Spain" )
+
+targetcountry <-  cleaner%>% filter( Country %in% country) %>% select(monyear,Country, td_Weeks, Web_Sessions)%>%group_by(monyear, Country)%>% 
+  summarize( count=n(), weeks= mean(td_Weeks),avg_webs= mean(Web_Sessions))
+
+
+ggplot( data =targetcountry , aes( as.factor(monyear), weeks )) +
+  geom_bar(stat="identity",position = 'dodge', width =0.6, aes(fill = targetcountry$Country))+ ggtitle("American Students Vs. Spanish Students Behavior") +
+  xlab("Sign Up Month")+ ylab("Number of Weeks")+ theme(legend.position = "right") + scale_fill_discrete(name ="Average # of Visits")
+windows()
+
+#BYNAT
+
+by_nat_country <- cleaner%>%select( Web_Sessions, Booking, Country, Destination,td_sec)%>%
+  group_by(Destination, Country, Booking)%>%
+  summarize( count=n(), avg_webs= mean(Web_Sessions), avg_days = mean(td_sec), )
+
+by_nat_country$avg_days <- seconds_to_period(by_nat_country$avg_days)
+
+write.csv(cleaner, "cleaner.csv")
+  
+#Spanish
+
+
+targetSpain <-  cleaner%>% filter( Country =="Spain") %>% select(monyear,Country, td_Weeks, Web_Sessions)%>%group_by(monyear, Country)%>% 
+  summarize( count=n(), weeks= mean(td_Weeks),avg_webs= mean(Web_Sessions))
+
+ggplot( data =targetSpain , aes( as.factor(monyear), weeks ,fill = targetSpain$avg_webs ))+ 
+  geom_bar(stat="identity",position = 'dodge', width =0.6)+
+  scale_fill_gradient(low = "#56B1F7", high = "#132B43",name ="Average # of Visits")+
+  xlab("Sign Up Month")+ ylab("Number of Weeks")+ ggtitle("Spanish Students Behavior")+ 
+  theme(legend.position = "bottom")
+windows()
+
+#Americans
+
+targetUSA <-  cleaner%>% filter( Country =="United States") %>% select(monyear,Country, td_Weeks, Web_Sessions)%>%group_by(monyear, Country)%>% 
+  summarize( count=n(), weeks= mean(td_Weeks),avg_webs= mean(Web_Sessions))
+
+
+install.packages("RColorBrewer")
+library(RColorBrewer)
+library(lubridate)
+ggplot( data =targetUSA , aes( as.factor(monyear), weeks, fill = targetUSA$avg_webs ))+ geom_bar(stat="identity",position = 'dodge',width =0.6) +
+  scale_fill_gradient(low = "#56B1F7", high = "#132B43",name ="Average # of Visits")+
+  xlab("Sign Up Month")+ ylab("Number of Weeks") + ggtitle("American Students Behavior")
+windows()    
+
+
+#target germans
+
+targetGermany <-  cleaner%>% filter( Country =="Germany") %>% select(monyear,Country, td_Weeks, Web_Sessions)%>%group_by(monyear, Country)%>% 
+  summarize( count=n(), weeks= mean(td_Weeks),avg_webs= mean(Web_Sessions))
+
+
+ggplot( data =targetGermany , aes( as.factor(monyear), weeks ,fill = targetGermany$avg_webs ))+ 
+  geom_bar(stat="identity",position = 'dodge', width =0.6)+
+  scale_fill_gradient(low = "#56B1F7", high = "#132B43",name ="Average # of Visits")+
+  xlab("Sign Up Month")+ ylab("Number of Weeks")+ ggtitle("German Students Behavior")
+windows()
+
+
+#target French 
+
+targetFrance <-  cleaner%>% filter( Country =="France") %>% select(monyear,Country, td_Weeks, Web_Sessions)%>%group_by(monyear, Country)%>% 
+  summarize( count=n(), weeks= mean(td_Weeks),avg_webs= mean(Web_Sessions))
+
+ggplot( data =targetFrance , aes( as.factor(monyear), weeks ,fill = targetFrance$avg_webs ))+ 
+  geom_bar(stat="identity",position = 'dodge', width =0.6)+
+  scale_fill_gradient(low = "#56B1F7", high = "#132B43",name ="Average # of Visits")+
+  xlab("Sign Up Month")+ ylab("Number of Weeks")+ ggtitle("French Students Behavior")
+windows()
+
+
+#target Italian
+
+targetItaly <-  cleaner%>% filter( Country =="Italy") %>% select(monyear,Country, td_Weeks, Web_Sessions)%>%group_by(monyear, Country)%>% 
+  summarize( count=n(), weeks= mean(td_Weeks),avg_webs= mean(Web_Sessions))
+
+ggplot( data =targetItaly, aes( as.factor(monyear), weeks ,fill = targetItaly$avg_webs ))+ 
+  geom_bar(stat="identity",position = 'dodge', width =0.6)+
+  scale_fill_gradient(low = "#56B1F7", high = "#132B43",name ="Average # of Visits")+
+  xlab("Sign Up Month")+ ylab("Number of Weeks")+ ggtitle("Italian Students Behavior")
+windows()
+
+
+#target Indians
+
+targetIndia <-  cleaner%>% filter( Country =="India") %>% select(monyear,Country, td_Weeks, Web_Sessions)%>%group_by(monyear, Country)%>% 
+  summarize( count=n(), weeks= mean(td_Weeks),avg_webs= mean(Web_Sessions))
+
+ggplot( data =targetIndia , aes( as.factor(monyear), weeks ,fill = targetIndia$avg_webs ))+ 
+  geom_bar(stat="identity",position = 'dodge', width =0.6)+
+  scale_fill_gradient(low = "#56B1F7", high = "#132B43",name ="Average # of Visits")+
+  xlab("Sign Up Month")+ ylab("Number of Weeks")+ ggtitle("India Students Behavior")
+windows()
+
+#germany vs Italy
+country2 <- c("Italy", "Germany" )
+
+targetcountry2 <-  cleaner%>% filter( Country %in% country2) %>% select(monyear,Country, td_Weeks, Web_Sessions)%>%group_by(monyear, Country)%>% 
+  summarize( count=n(), weeks= mean(td_Weeks),avg_webs= mean(Web_Sessions))
+
+
+ggplot( data =targetcountry2 , aes( as.factor(monyear), weeks )) +
+geom_bar(stat="identity",position = 'dodge', width =0.6, aes(fill =targetcountry2$Country))+ ggtitle("Italian Students Vs. German Students Behavior") +
+xlab("Sign Up Month")+ ylab("Number of Weeks")+ theme(legend.position = "right") + scale_fill_discrete(name ="Average # of Visits")
+windows()
+
+library(reshape2)
+
+targetcountry3 <- select(targetcountry2, Country, weeks, avg_webs)
+targetlong <- melt(targetcountry3)
+ggplot( data = targetlong , aes( as.factor(monyear), weeks )) +
+  geom_bar(stat="identity",position = 'dodge', width =0.6, aes(fill =targetlong$avg_webs))+
+  geom_bar(stat="identity",position = 'dodge', width =0.6, aes(fill =targetlong$avg_webs))+
+  
+  ggtitle("Italian Students Vs. German Students Behavior") +
+  xlab("Sign Up Month")+ ylab("Number of Weeks")+ 
+  theme(legend.position = "right") + scale_fill_discrete(name ="Average # of Visits")
+
+
+spanishblue <- filter(cleaner, Country =="Spain", Booking == "confirmed" | Booking == "not_confirmed")
+
+
+write.
+write.csv(Users1,"Users1.csv")
+write.csv(nat1,"count.csv")
+write.csv(spanishblue,"Spanishblue.csv")
+summary(Clean$Fine_Amt)
+write.csv(cleaner, "Cleaner.csv")
+
+cleanblue <- filter(cleaner,Booking == "confirmed" | Booking == "not_confirmed")
+
+nrow(filter(cleanblue, Booking =="pending"))
+
+
+max.s <- summarise(max.g, count=n(), )
+max.s <- arrange(max.s, desc(count))
+
+
+lmfit <- lm(cleaner$Booking ~ )
+
